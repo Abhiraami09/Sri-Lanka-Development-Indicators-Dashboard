@@ -6,7 +6,6 @@ World Bank – World Development Indicators
 import os
 import subprocess
 import sys
-
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -285,7 +284,7 @@ def fmt(val, decimals=2, suffix=""):
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─── OVERVIEW ────────────────────────────────────────────────────────────────
-if page == "🏠 Overview":
+if page == "🏠 Overviews":
     st.markdown(
         """
         <div class='hero-banner'>
