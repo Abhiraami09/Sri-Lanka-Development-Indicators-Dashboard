@@ -635,7 +635,7 @@ elif page == "🔬 Bivariate Analysis":
 
     available_indicators = sorted(lka_df["Indicator Name"].dropna().unique())
 
-    if len(available_indicators) < 2:
+    if len(available_indicators) < 1:
         st.warning(
             "Bivariate Analysis requires at least 2 different indicators. "
             "Your current dataset only contains one indicator, so correlation/scatter analysis cannot be created."
@@ -647,79 +647,82 @@ elif page == "🔬 Bivariate Analysis":
     )
 
     with tab1:
-        col_x, col_y = st.columns(2)
+    st.info(
+        "This dataset has one main indicator, so the scatter plot uses a derived variable: "
+        "current year value vs previous year value."
+    )
 
-        with col_x:
-            x_ind = st.selectbox(
-                "X-axis Indicator",
-                available_indicators,
-                index=0,
-                key="biv_x",
-            )
+    indicator_name = available_indicators[0]
 
-        with col_y:
-            y_ind = st.selectbox(
-                "Y-axis Indicator",
-                available_indicators,
-                index=min(1, len(available_indicators) - 1),
-                key="biv_y",
-            )
+    sub = lka_df[
+        (lka_df["Indicator Name"] == indicator_name)
+        & (lka_df["Year"] >= year_range[0])
+        & (lka_df["Year"] <= year_range[1])
+    ].copy()
 
-        x_df = lka_df[
-            (lka_df["Indicator Name"] == x_ind)
-            & (lka_df["Year"] >= year_range[0])
-            & (lka_df["Year"] <= year_range[1])
-        ][["Year", "Value"]].rename(columns={"Value": "X"})
+    sub = sub.sort_values("Year")
 
-        y_df = lka_df[
-            (lka_df["Indicator Name"] == y_ind)
-            & (lka_df["Year"] >= year_range[0])
-            & (lka_df["Year"] <= year_range[1])
-        ][["Year", "Value"]].rename(columns={"Value": "Y"})
+    # Create derived second variable
+    sub["Previous Year Value"] = sub["Value"].shift(1)
 
-        merged = pd.merge(x_df, y_df, on="Year")
+    # Remove first row because previous year value is empty
+    sub = sub.dropna(subset=["Previous Year Value"])
 
-        if merged.empty:
-            st.info("No overlapping years for the selected indicators.")
+    merged = sub.rename(
+        columns={
+            "Value": "X",
+            "Previous Year Value": "Y",
+        }
+    )
+
+    if merged.empty:
+        st.info("Not enough yearly data to create the derived bivariate analysis.")
+    else:
+        x_ind = "Current Year Value"
+        y_ind = "Previous Year Value"
+
+        corr = merged["X"].corr(merged["Y"])
+
+        if corr > 0.7:
+            corr_text = "Strong positive relationship"
+        elif corr > 0.3:
+            corr_text = "Moderate positive relationship"
+        elif corr < -0.7:
+            corr_text = "Strong negative relationship"
+        elif corr < -0.3:
+            corr_text = "Moderate negative relationship"
         else:
-            corr = merged["X"].corr(merged["Y"])
+            corr_text = "Weak relationship"
 
-            if corr > 0.7:
-                corr_text = "Strong positive relationship"
-            elif corr > 0.3:
-                corr_text = "Moderate positive relationship"
-            elif corr < -0.7:
-                corr_text = "Strong negative relationship"
-            elif corr < -0.3:
-                corr_text = "Moderate negative relationship"
-            else:
-                corr_text = "Weak relationship"
+        st.markdown(
+            f"""
+            <div class='insight-box'>
+                📐 <strong>Pearson Correlation:</strong>
+                <strong>{corr:.4f}</strong> — {corr_text}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-            st.markdown(
-                f"""
-                <div class='insight-box'>
-                    📐 <strong>Pearson Correlation:</strong>
-                    <strong>{corr:.4f}</strong> — {corr_text}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        fig = px.scatter(
+            merged,
+            x="X",
+            y="Y",
+            color="Year",
+            color_continuous_scale="Teal",
+            trendline="ols",
+            labels={
+                "X": x_ind,
+                "Y": y_ind,
+                "Year": "Year",
+            },
+            title=f"Derived Bivariate Analysis: {x_ind} vs {y_ind}",
+            hover_data={"Year": True},
+        )
 
-            fig = px.scatter(
-                merged,
-                x="X",
-                y="Y",
-                color="Year",
-                color_continuous_scale="Teal",
-                trendline="ols",
-                labels={"X": x_ind, "Y": y_ind, "Year": "Year"},
-                title=f"Scatter: {x_ind[:40]} vs {y_ind[:40]}",
-                hover_data={"Year": True},
-            )
-
-            fig.update_traces(marker=dict(size=8, opacity=0.85))
-            fig.update_layout(**PLOT_LAYOUT)
-            st.plotly_chart(fig, use_container_width=True)
+        fig.update_traces(marker=dict(size=8, opacity=0.85))
+        fig.update_layout(**PLOT_LAYOUT)
+        st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
         st.markdown("Select indicators for the correlation matrix:")
