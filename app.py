@@ -842,10 +842,10 @@ elif page == "🔬 Bivariate Analysis":
     # ── TAB 3: DISTRIBUTION ──
     with tab3:
         dist_ind = st.selectbox(
-            "Indicator for distribution",
-            available_indicators,
-            key="dist_ind",
-        )
+    "Indicator for distribution",
+    available_indicators,
+    key="bivariate_dist_ind",
+)
 
         sub = lka_df[
             (lka_df["Indicator Name"] == dist_ind)
