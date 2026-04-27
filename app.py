@@ -643,9 +643,10 @@ elif page == "🔬 Bivariate Analysis":
 
     # ── TAB 1: SCATTER (DERIVED) ──
     with tab1:
-    st.info(
-        "Using derived variable (previous year value) for bivariate analysis"
-    )
+        st.info(
+            "Using derived variable (previous year value) for bivariate analysis "
+            "since dataset contains only one indicator."
+        )
 
         indicator_name = available_indicators[0]
 
@@ -663,10 +664,12 @@ elif page == "🔬 Bivariate Analysis":
         # Remove nulls
         sub = sub.dropna(subset=["Previous Year Value"])
 
-        merged = sub.rename(columns={
-            "Value": "X",
-            "Previous Year Value": "Y"
-        })
+        merged = sub.rename(
+            columns={
+                "Value": "X",
+                "Previous Year Value": "Y",
+            }
+        )
 
         if merged.empty:
             st.info("Not enough data for analysis.")
@@ -710,6 +713,89 @@ elif page == "🔬 Bivariate Analysis":
             fig.update_traces(marker=dict(size=8, opacity=0.85))
             fig.update_layout(**PLOT_LAYOUT)
             st.plotly_chart(fig, use_container_width=True)
+
+    # ── TAB 2: HEATMAP (DERIVED) ──
+    with tab2:
+        st.info("Derived correlation heatmap using current year value and previous year value.")
+
+        indicator_name = available_indicators[0]
+
+        sub = lka_df[
+            (lka_df["Indicator Name"] == indicator_name)
+            & (lka_df["Year"] >= year_range[0])
+            & (lka_df["Year"] <= year_range[1])
+        ].copy()
+
+        sub = sub.sort_values("Year")
+        sub["Previous Year Value"] = sub["Value"].shift(1)
+        sub = sub.dropna(subset=["Previous Year Value"])
+
+        if sub.empty:
+            st.info("Not enough data for heatmap.")
+        else:
+            corr_mat = sub[["Value", "Previous Year Value"]].corr()
+
+            corr_mat = corr_mat.rename(
+                index={
+                    "Value": "Current Year Value",
+                    "Previous Year Value": "Previous Year Value",
+                },
+                columns={
+                    "Value": "Current Year Value",
+                    "Previous Year Value": "Previous Year Value",
+                },
+            )
+
+            fig = px.imshow(
+                corr_mat,
+                color_continuous_scale=[
+                    [0, "#fc8181"],
+                    [0.5, "#2d3748"],
+                    [1, "#68d391"],
+                ],
+                zmin=-1,
+                zmax=1,
+                text_auto=".2f",
+                title="Derived Correlation Matrix",
+            )
+
+            fig.update_layout(**PLOT_LAYOUT)
+            st.plotly_chart(fig, use_container_width=True)
+
+    # ── TAB 3: DISTRIBUTION ──
+    with tab3:
+        dist_ind = st.selectbox(
+            "Indicator for distribution",
+            available_indicators,
+            key="dist_ind",
+        )
+
+        sub = lka_df[
+            (lka_df["Indicator Name"] == dist_ind)
+            & (lka_df["Year"] >= year_range[0])
+            & (lka_df["Year"] <= year_range[1])
+        ]["Value"].dropna()
+
+        if sub.empty:
+            st.info("No data.")
+        else:
+            col_l, col_r = st.columns(2)
+
+            with col_l:
+                fig = px.histogram(
+                    sub,
+                    nbins=15,
+                    color_discrete_sequence=[COLORS[0]],
+                    title="Distribution Histogram",
+                )
+                fig.update_layout(**PLOT_LAYOUT)
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col_r:
+                fig2 = go.Figure()
+                fig2.add_trace(go.Box(y=sub, name=dist_ind))
+                fig2.update_layout(**PLOT_LAYOUT, title="Box Plot")
+                st.plotly_chart(fig2, use_container_width=True)
 
     # ── TAB 2: HEATMAP (DERIVED) ──
     with tab2:
